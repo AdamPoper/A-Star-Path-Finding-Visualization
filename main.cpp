@@ -1,162 +1,56 @@
-#include <SFML/Graphics.hpp>
-#include <array>
-#include <vector>
-#include <list>
-#include <iostream>
-#include <thread>
-#include <chrono>
+#include "Algorithm.h"
 
-#include "Node.h"
-
-#define ROWS    50
-#define COLUMNS 52
-
-#define WIDTH   900
-#define HEIGHT  900
-
-const sf::Vector2f Node::s_nodeSize = { WIDTH / ROWS, HEIGHT / COLUMNS };
-uint32_t Node::s_nodeCount = (ROWS * COLUMNS);
 void initNodes(std::vector<node_t>& nodes)
 {
+    uint32_t node_id = 0;
     for (int y = 0; y < ROWS; y++)
+    {
         for (int x = 0; x < COLUMNS; x++)
-            nodes.emplace_back(node_t(sf::Vector2f(x * Node::s_nodeSize.x, y * Node::s_nodeSize.y)));
+        {
+            nodes.emplace_back(Node(sf::Vector2f(x * Node::s_nodeSize.x, y * Node::s_nodeSize.y)));
+            nodes[node_id].setRenderID(node_id);
+            node_id++;
+        }
+    }
 }
 
-node_t* pickStart(std::vector<node_t>& nodes, sf::Window& win)
-{
-    if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
-    {
-        node_t* start = Node::findNode(nodes, sf::Mouse::getPosition(win), COLUMNS, ROWS);
-        if (start != nullptr)
-        {
-            start->Quad().setFillColor(sf::Color::Blue);
-            return start;
-        }
-        else return nullptr;
-    }
-    return nullptr;
-}
-node_t* pickEnd(std::vector<node_t>& nodes, sf::Window& win)
+node_t* pickNode(std::vector<node_t>& nodes, sf::Window& win, sf::Color col)
 {
     if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
     {
         node_t* end = Node::findNode(nodes, sf::Mouse::getPosition(win), COLUMNS, ROWS);
         if (end != nullptr)
         {
-            end->Quad().setFillColor(sf::Color::Red);
+            end->Quad().setFillColor(col);
             return end;
         }
         else return nullptr;
     }
     return nullptr;
 }
-bool isBlocked(node_t* n, std::vector<node_t>& nodes)
+node_t* pickNode(std::vector<node_t>& nodes, sf::RenderWindow& win)
 {
-    sf::Vector2i pos = { (int)n->Quad().getPosition().x, (int)n->Quad().getPosition().y };
-    node_t* temp = Node::findNode(nodes, pos, COLUMNS, ROWS);
-    if (temp->isBlocked())
-        return true;
-    else
-        return false;
-}
-void findNeighbors(std::vector<node_t>& nodes, std::vector<node_t*>& open, node_t* currentNode, std::vector<node_t*>& closed, node_t* start, node_t* end)
-{
-    sf::Vector2f pos = currentNode->Quad().getPosition();
-    std::vector<node_t*> children;
-    children.reserve(4);
-    node_t* child;
+    sf::Clock clock;
+    node_t* n = nullptr;
+    while (!n)
     {
-        // North
-        child = Node::findNode(nodes, { (int)pos.x, int(pos.y-Node::s_nodeSize.y) }, COLUMNS, ROWS);
-        if (child != nullptr && !isBlocked(child, nodes))
+        if (sf::Mouse::isButtonPressed(sf::Mouse::Left) && clock.getElapsedTime().asMilliseconds())
         {
-            //child->setParent(currentNode);
-            children.push_back(child);       
+            clock.restart();
+            n = Node::findNode(nodes, sf::Mouse::getPosition(win), COLUMNS, ROWS);
         }
-        // East
-        child = Node::findNode(nodes, { (int)(pos.x + Node::s_nodeSize.x), (int)(pos.y) }, COLUMNS, ROWS);
-        if (child != nullptr && !isBlocked(child, nodes))
-        {
-            //child->setParent(currentNode);
-            children.push_back(child);               
-        }
-        // South
-        child = Node::findNode(nodes, { (int)(pos.x), (int)(pos.y + Node::s_nodeSize.y) }, COLUMNS, ROWS);
-        if (child != nullptr && !isBlocked(child, nodes))
-        {
-            //child->setParent(currentNode);
-            children.push_back(child);       
-        }
-        // West
-        child = Node::findNode(nodes, { (int)(pos.x - Node::s_nodeSize.x), (int)(pos.y) }, COLUMNS, ROWS);
-        if (child != nullptr && !isBlocked(child, nodes))
-        {
-           // child->setParent(currentNode);
-            children.push_back(child);        
-        }
+        sf::Event event;
+        while (win.pollEvent(event))
+            if (event.type == sf::Event::Closed)
+                win.close();       
+        win.clear();
+        for (int i = 0; i < nodes.size(); i++)
+            win.draw(nodes[i].Quad());
+        win.display();
     }
-    for (auto& c : children)
-    {
-        bool flag = false;
-        for (auto& n : closed)
-        {
-            if (c == n)
-            {                
-                flag = true;                
-                break;
-            }
-        }
-        if (flag)
-            continue;
-        flag = false;
-        c->g_costCalc(start);
-        c->h_costCalc(end);
-        c->f_costCalc();
-        for (auto& o : open)
-        {
-            if (c == o)
-            {
-                if(c->g_costGet() < o->g_costGet())
-                {
-                    flag = true;
-                    break;
-                }                
-            }
-        }
-        if (flag)
-            continue;       
-        c->Quad().setFillColor(sf::Color::Green);
-        c->setParent(currentNode);
-        open.push_back(c);
-    }
+    return n;
 }
-template<typename T>
-void swap(T& a, T& b)
-{
-    T temp = a;
-    a = b;
-    b = temp;
-}
-void bubbleSort(std::vector<node_t*>& open)
-{
-    for (int i = 0; i < open.size(); i++)
-        for (int j = 0; j < open.size(); j++)
-            if (*open[i] < *open[j])
-                swap<node_t*>(open[i], open[j]);
-}
-void selectionSort(std::vector<node_t*>& open)
-{
-    int min_index = 0;
-    for (int i = 0; i < open.size() - 1; i++)
-    {
-        min_index = i;
-        for (int j = i + 1; j < open.size(); j++)
-            if (*open[j] < *open[min_index])
-                min_index = j;
-        swap<node_t*>(open[min_index], open[i]);
-    }
-}
+
 int main()
 {
     sf::RenderWindow window(sf::VideoMode(WIDTH, HEIGHT), "A* Searching");
@@ -172,44 +66,19 @@ int main()
     std::vector<node_t*> open;         // nodes to be evaluated
     std::vector<node_t*> closed;       // nodes already evaluated
     std::vector<node_t*> blockedNodes; // nodes that are blocked off
-    std::vector<node_t*> path;
     // display the initialized nodes
     window.clear();
     for (int i = 0; i < nodes.size(); i++)
         window.draw(nodes[i].Quad());
     window.display();
-    // wait to get the start node
-    while (!startNode)
-    {
-        startNode = pickStart(nodes, window);
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-        window.clear();
-        for (int i = 0; i < nodes.size(); i++)
-            window.draw(nodes[i].Quad());
-        window.display();
-    }    
+    // wait to get the start node   
+    startNode = pickNode(nodes, window);
+    startNode->Quad().setFillColor(sf::Color::Blue);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));   
     // wait to get the end node    
-    while (!endNode)
-    {
-        endNode = pickEnd(nodes, window);
-        sf::Event event;
-        while (window.pollEvent(event))
-        {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-        window.clear();
-        for (int i = 0; i < nodes.size(); i++)
-            window.draw(nodes[i].Quad());
-        window.display();
-    }    
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    endNode = pickNode(nodes, window);
+    endNode->Quad().setFillColor(sf::Color::Red);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     bool started = false;
     // set blocks
     while (!started)
@@ -234,36 +103,23 @@ int main()
         window.display();
     }
     bool found = false;
-    sf::Clock startClock;
     open.push_back(startNode);
     currentNode = open[0];
     currentNode->reset_costs();
-    currentNode->g_costCalc(startNode);
+    currentNode->g_costCalc(startNode, 0.0f);
     currentNode->h_costCalc(endNode);
     currentNode->f_costCalc();
     while (window.isOpen())
     {                         
-        if (!found && sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && startClock.getElapsedTime().asMilliseconds() >= 0.0f)
+        if (!found)
         {        
-            startClock.restart();
-            //std::cout << "Closed node count: " << closed.size() << std::endl;
-            //std::this_thread::sleep_for(std::chrono::milliseconds(0));  
-            //std::cout << "Sorting" << std::endl;
-            selectionSort(open);
-            //std::cout << "Sorted" << std::endl;
-            currentNode = open[0];
-            //std::cout << "Current Node Assigned to Lowest F" << std::endl;
-            for (int i = 0; i < open.size(); i++)
-                if (open[i]->h_costGet() < currentNode->h_costGet())
-                    currentNode = open[i];
-
+            selectionSort(open);   // sort the nodes by lowest f cost
+            currentNode = open[0]; // assign the current node to the open node with lowest f            
             for(auto it = open.begin(); it != open.end(); it++)
-                if ((*it)->h_costGet() < currentNode->h_costGet())
-                    currentNode = *it;                    
-               
-            ///std::cout << "Current Node Reassigned to lowest h among the lowest f" << std::endl;
-            currentNode->Quad().setFillColor(sf::Color::Magenta);    
-            //std::cout << "Erased Current Node from open" << std::endl;
+                if ((*it)->h_costGet() <= currentNode->h_costGet())
+                    currentNode = *it;                  // among the lowest f cost nodes find the one with the lowest h                                  
+            currentNode->Quad().setFillColor(sf::Color::Magenta); 
+            // erase the currentNode from the open list
             for (auto it = open.begin(); it != open.end(); it++)
             {
                 if (*it == currentNode)
@@ -272,28 +128,20 @@ int main()
                     break;
                 }
             }
-            closed.push_back(currentNode);
-            //std::cout << "Included Current Node in closed" << std::endl;
+            closed.push_back(currentNode);  // add the current node to the closed list
             // removes duplicates cause there are for some reason
             for (auto openit = open.begin(); openit != open.end(); openit++)
             {
                 for (auto closedit = closed.begin(); closedit != closed.end(); closedit++)
                     if (*openit == *closedit)
-                    {
-                        //std::cout << "before duplicate erase" << std::endl;                        
-                        open.erase(openit);                          
-                        //closed.erase(closedit);
-                        //std::cout << "after duplicate erase" << std::endl;
-                    }
+                        open.erase(openit);                                              
                 if (openit == open.end())
                     break;
             }
-            //std::cout << "Removed any duplicates" << std::endl;
-            if (currentNode == endNode)
+            if (currentNode == endNode)  // check if the target node has been found
                 found = true;                                       
-            if (!found)
-                findNeighbors(nodes, open, currentNode, closed, startNode, endNode);    
-            //std::cout << "Found neighbors" << std::endl;
+              // if the end node hasn't been found, find the new neighbors of the current node
+            findNeighbors(nodes, open, currentNode, closed, startNode, endNode);    
         }
         window.clear();
         for (int i = 0; i < nodes.size(); i++)
@@ -305,32 +153,23 @@ int main()
                 window.close();
         }
         for (node_t* n : open)
-        {
-           // n->drawText(window);
-            n->Quad().setFillColor(sf::Color::Green);            
-        }       
+            n->Quad().setFillColor(sf::Color::Green);                                               
         for (node_t* n : closed)
-        {
-            //n->drawText(window);
-            n->Quad().setFillColor(sf::Color::Cyan);
-        }
+            n->Quad().setFillColor(sf::Color::Cyan);                        
         if (currentNode != nullptr)
-        {
-            //currentNode->drawText(window);
-            currentNode->Quad().setFillColor(sf::Color::Magenta);
-            //std::cout << currentNode->getParent() << std::endl;
-        }
-        if (currentNode != nullptr && currentNode->getParent() != nullptr)
-        {
-            currentNode->getParent()->Quad().setFillColor(sf::Color::Yellow);
-            path.push_back(currentNode->getParent());
-        }
+            currentNode->Quad().setFillColor(sf::Color::Magenta);                                   
         if (found)
         {
-            for (int i = 0; i < path.size(); i++)
-                path[i]->Quad().setFillColor(sf::Color::Yellow);
-        }
-        
+            // retrace the parents to find out what the shortest path is
+            node_t* n = endNode;
+            while (n->getParent() != nullptr)
+            {
+                n = n->getParent();
+                n->Quad().setFillColor(sf::Color::Yellow);
+            }
+            startNode->Quad().setFillColor(sf::Color::Blue);
+            endNode->Quad().setFillColor(sf::Color::Red);
+        }        
         window.display();        
     }
 

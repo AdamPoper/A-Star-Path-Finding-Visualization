@@ -43,12 +43,9 @@ void Node::f_costCalc()
 	f_str += ft;
 	f_text.setString(f_str.c_str());	
 }
-void Node::g_costCalc(node_t* start)
+void Node::g_costCalc(node_t* parent, float newG)
 {
-	float a = abs(start->Quad().getPosition().x - m_quad.getPosition().x);
-	float b = abs(start->Quad().getPosition().y - m_quad.getPosition().y);
-	float c = sqrt((a * a) + (b * b));
-	g_cost = c;
+	this->g_cost = parent->g_costGet() + newG;
 	g_str = "G: ";
 	std::stringstream ss;
 	ss << g_cost;
@@ -97,6 +94,17 @@ void Node::draw(sf::RenderWindow& win)
 void Node::setParent(node_t* parent)
 {
 	m_parent = parent;
+	std::stringstream ss;
+	std::string par_str;
+	ss << m_parent->m_renderID;
+	ss >> par_str;
+	std::string par_id = "Parent ID: " + par_str;
+	par_text.setString(par_id);
+	par_text.setCharacterSize(9);
+	par_text.setFillColor(sf::Color::Black);
+	par_text.setPosition({ m_quad.getPosition().x + 1.0f, m_quad.getPosition().y + 5.0f });
+	par_text.setFont(s_font);
+
 }
 void Node::reset_costs() 
 {
@@ -106,12 +114,16 @@ void Node::reset_costs()
 }
 void Node::drawText(sf::RenderWindow& win)
 {	
-	g_text.setFont(s_font);	
-	win.draw(g_text);	
+	//g_text.setFont(s_font);	
+	//win.draw(g_text);	
+	par_text.setFont(s_font);
+	win.draw(par_text);
 	h_text.setFont(s_font);
 	win.draw(h_text);
 	f_text.setFont(s_font);
 	win.draw(f_text);
+	id_text.setFont(s_font);
+	win.draw(id_text);
 }
 float Node::g_costGet() const { return g_cost; }
 float Node::h_costGet() const { return h_cost; }
@@ -142,4 +154,18 @@ bool Node::isBlocked() { return is_blocked; }
 node_t* Node::getParent() const
 {
 	return m_parent;
+}
+void Node::setRenderID(uint32_t id)
+{
+	m_renderID = id;
+	std::stringstream ss;
+	std::string id_str;
+	ss << m_renderID;
+	ss >> id_str;
+	std::string str_id = "Node ID: " + id_str;
+	id_text.setString(str_id);
+	id_text.setCharacterSize(9);
+	id_text.setFillColor(sf::Color::Black);
+	id_text.setPosition({ m_quad.getPosition().x + 1.0f, m_quad.getPosition().y + 60.0f });
+	id_text.setFont(s_font);
 }

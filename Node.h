@@ -14,7 +14,7 @@ public:
 	static const sf::Vector2f s_nodeSize;
 	static uint32_t s_nodeCount;
 	static node_t* findNode(std::vector<node_t>& nodes, sf::Vector2i pos, uint32_t COLUMNS, uint32_t ROWS);
-	void g_costCalc(node_t* start);
+	void g_costCalc(node_t* parent, float newG);
 	void h_costCalc(node_t* end);
 	void f_costCalc();
 	float g_costGet() const;
@@ -27,6 +27,7 @@ public:
 	node_t* getParent() const;
 	void draw(sf::RenderWindow& win);
 	void drawText(sf::RenderWindow& win);
+	void setRenderID(uint32_t id);
 	static void loadFont();
 	bool operator<(const Node& n);
 	bool operator>(const Node& n);
@@ -36,8 +37,9 @@ private:
 	sf::RectangleShape m_quad;
 	float g_cost, h_cost, f_cost;
 	static sf::Font s_font;
-	sf::Text g_text, h_text, f_text;
+	sf::Text g_text, h_text, f_text, id_text, par_text;
 	std::string g_str, h_str, f_str;
 	Node* m_parent = nullptr;
 	bool is_blocked = false;
+	uint32_t m_renderID;
 };
